@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Влезни фактури</title>
+<style>
+  :root {
+    --paper: #cfc6b4;
+    --card: #ddd4c2;
+    --ink: #2a2824;
+    --muted: #645e54;
+    --line: #b7ae9c;
+    --green: #1f4d3a;
+    --green-2: #2f6a50;
+    --on-green: #f3efe4;
+    --yellow: #e4d59a;
+    --calc: #c9dccb;
+    --danger: #8d2f2f;
+    --amber: #8a5a12;
+    --header: #1f4d3a;
+    --nav: #f3efe4;
+    --th: #d3c9b6;
+    --hover: #cfc4af;
+    --badge: #e4d3a4;
+    --badge-paid: #c5dccb;
+    --badge-off: #d2cbbe;
+    --error-bg: #e8d0d0;
+    --modal: rgba(28, 36, 28, 0.45);
+  }
+  html[data-theme="dark"] {
+    --paper: #192330;
+    --card: #212e3f;
+    --ink: #cdcecf;
+    --muted: #71839b;
+    --line: #2e3f55;
+    --green: #719cd6;
+    --green-2: #8cb0e0;
+    --on-green: #fff;
+    --yellow: #3a3424;
+    --calc: #1c3328;
+    --danger: #c94f6d;
+    --amber: #e0b15a;
+    --header: #212e3f;
+    --nav: #cdcecf;
+    --th: #1c2a39;
+    --hover: #283d55;
+    --badge: #3d3422;
+    --badge-paid: #1c3328;
+    --badge-off: #28323f;
+    --error-bg: #3a242c;
+    --modal: rgba(0, 0, 0, 0.55);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--paper);
+    font: 15px/1.45 "Segoe UI", sans-serif;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 22px;
+    background: var(--header);
+    color: var(--on-green);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font: 600 22px Georgia, serif; letter-spacing: 0.01em; }
+  header p { margin: 2px 0 0; font-size: 12px; opacity: 0.8; }
+  nav { display: flex; gap: 6px; margin-left: 18px; flex-wrap: wrap; }
+  nav button, .ghost, .primary, .danger {
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 7px 12px;
+    background: transparent;
+  }
+  nav button { color: var(--nav); }
+  nav button.active, nav button:hover { background: rgba(255,255,255,0.12); }
+  .spacer { flex: 1; }
+  header .ghost, .theme-btn {
+    color: var(--nav);
+    border-color: var(--line);
+    background: transparent;
+  }
+  .theme-btn { border-radius: 6px; padding: 6px 10px; font-size: 15px; line-height: 1; }
+  .theme-btn:hover, header .ghost:hover { background: rgba(255,255,255,0.12); }
+  main { padding: 18px 22px 40px; }
+  .toolbar, .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  input, select, textarea {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 8px;
+    background: var(--yellow);
+    min-width: 0;
+  }
+  textarea { min-height: 68px; resize: vertical; }
+  .calc { background: var(--calc); }
+  .primary { background: var(--green); color: var(--on-green); }
+  .primary:hover { background: var(--green-2); }
+  .ghost { border-color: var(--line); background: var(--card); color: var(--ink); }
+  .danger { background: var(--danger); color: white; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  table { width: 100%; border-collapse: collapse; background: var(--card); }
+  th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--th); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: var(--hover); }
+  .badge {
+    display: inline-block;
+    border-radius: 99px;
+    padding: 2px 8px;
+    font-size: 12px;
+    background: var(--badge);
+    color: var(--amber);
+  }
+  .badge.paid { background: var(--badge-paid); color: var(--green); }
+  .badge.cancelled { background: var(--badge-off); color: var(--muted); }
+  .error {
+    background: var(--error-bg);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+  }
+  .hint { color: var(--muted); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 10px; }
+  .span-2 { grid-column: span 2; }
+  .span-4 { grid-column: span 4; }
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: var(--modal);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 28px 16px;
+    overflow: auto;
+    z-index: 5;
+  }
+  .sheet {
+    width: min(1120px, 100%);
+    background: var(--paper);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .sheet h2 { margin: 0 0 12px; font: 600 22px Georgia, serif; }
+  .line-table input, .line-table select { width: 100%; }
+  .line-table td { min-width: 78px; }
+  .totals { display: flex; gap: 18px; justify-content: flex-end; margin-top: 10px; }
+  .totals div { min-width: 140px; }
+  .totals strong { display: block; font-size: 18px; }
+  .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  .login-bar { position: fixed; top: 14px; right: 14px; }
+  .login-bar .theme-btn { color: var(--ink); border: 1px solid var(--line); background: var(--card); }
+  .date-wrap { display: flex; align-items: stretch; position: relative; }
+  .date-wrap input[type="text"] { border-radius: 6px 0 0 6px; border-right: none; min-width: 108px; width: 118px; }
+  .cal-btn {
+    padding: 0 9px; border: 1px solid var(--line); border-radius: 0 6px 6px 0;
+    background: var(--card); color: var(--muted); cursor: pointer;
+  }
+  .cal-btn:hover { background: var(--hover); color: var(--ink); }
+  .date-wrap input[type="date"] { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+  .app-cal {
+    position: fixed; z-index: 500; width: 280px;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28); padding: 10px;
+  }
+  .app-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
+  .app-cal-title { font-weight: 700; font-size: 14px; text-align: center; flex: 1; }
+  .app-cal-nav {
+    width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); cursor: pointer; font-size: 18px; line-height: 1;
+  }
+  .app-cal-nav:hover { background: var(--hover); }
+  .app-cal-week, .app-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .app-cal-week span { text-align: center; font-size: 10px; font-weight: 700; color: var(--muted); padding: 4px 0; }
+  .app-cal-day {
+    border: none; background: transparent; color: var(--ink);
+    border-radius: 7px; height: 32px; cursor: pointer; font: inherit; font-size: 13px;
+  }
+  .app-cal-day:hover { background: var(--hover); }
+  .app-cal-day.muted { color: var(--muted); }
+  .app-cal-day.today { box-shadow: inset 0 0 0 1px var(--green); }
+  .app-cal-day.selected, .app-cal-day.selected:hover { background: var(--green); color: var(--on-green); }
+  .app-cal-foot { display: flex; justify-content: space-between; margin-top: 8px; }
+  .login {
+    width: min(380px, 100%);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .login h1 { margin: 0 0 6px; font: 600 28px Georgia, serif; }
+  .login form { display: grid; gap: 10px; margin-top: 16px; }
+  .who { font-size: 13px; opacity: 0.85; }
+  @media (max-width: 800px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .span-2, .span-4 { grid-column: span 2; }
+    header { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div id="login" class="login-wrap hidden">
+  <div class="login-bar"><button class="theme-btn" id="loginThemeBtn" type="button" title="Тема">🌙</button></div>
+  <div class="login">
+    <h1>Влезни фактури</h1>
+    <p class="hint">Книга на влезни фактури по места на потрошувачка и по партнер.</p>
+    <form id="login-form">
+      <label>Корисник<input name="username" autocomplete="username" required></label>
+      <label>Лозинка<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary" type="submit">Најава</button>
+      <div id="login-error" class="error hidden"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div>
+      <h1>Влезни фактури</h1>
+      <p>Жолто се внесува. Зелено се пресметува.</p>
+    </div>
+    <nav>
+      <button data-view="invoices" class="active">Фактури</button>
+      <button data-view="partners">Партнери</button>
+      <button data-view="articles">Ставки</button>
+      <button data-view="taxes">Даноци</button>
+      <button data-view="reports">Извештаи</button>
+      <button data-view="users" id="users-nav" class="hidden">Корисници</button>
+    </nav>
+    <div class="spacer"></div>
+    <span class="who" id="who"></span>
+    <button class="theme-btn" id="themeBtn" type="button" title="Тема">🌙</button>
+    <button class="ghost" id="password-open">Лозинка</button>
+    <button class="ghost" id="logout">Одјава</button>
+  </header>
+  <main>
+    <section id="view-invoices">
+      <div class="filters">
+        <label>Пребарај<input id="q" placeholder="број, партнер, место"></label>
+        <label>Партнер<select id="filter-partner"></select></label>
+        <label>Година<select id="filter-year"></select></label>
+        <label>Статус<select id="filter-status">
+          <option value="">Сите</option>
+          <option value="unpaid">Неплатена</option>
+          <option value="paid">Платена</option>
+          <option value="cancelled">Откажана</option>
+        </select></label>
+        <label>Од<div class="date-wrap"><input type="text" id="filter-from-txt" placeholder="дд.мм.гггг" maxlength="10"><button type="button" class="cal-btn" data-cal="filter-from">▦</button><input type="date" id="filter-from"></div></label>
+        <label>До<div class="date-wrap"><input type="text" id="filter-to-txt" placeholder="дд.мм.гггг" maxlength="10"><button type="button" class="cal-btn" data-cal="filter-to">▦</button><input type="date" id="filter-to"></div></label>
+        <button class="primary" id="invoice-new">Нова фактура</button>
+        <button class="ghost" id="invoice-export">Excel</button>
+      </div>
+      <div id="invoice-error" class="error hidden"></div>
+      <div class="card" style="padding:0; overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Број</th><th>Датум</th><th>Рок</th><th>Партнер</th><th>Место</th>
+              <th class="num">Без данок</th><th class="num">Данок</th><th class="num">За плаќање</th><th>Статус</th>
+            </tr>
+          </thead>
+          <tbody id="invoice-rows"></tbody>
+          <tfoot>
+            <tr>
+              <th colspan="5" id="invoice-count"></th>
+              <th class="num" id="sum-net"></th>
+              <th class="num" id="sum-tax"></th>
+              <th class="num" id="sum-pay"></th>
+              <th></th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-partners" class="hidden">
+      <div class="toolbar">
+        <button class="primary" id="partner-new">Нов партнер</button>
+        <span class="hint">ЕСМ Продажба нема места. Електродистрибуција ги има седумте.</span>
+      </div>
+      <div id="partner-error" class="error hidden"></div>
+      <div class="card" style="padding:0; overflow:auto">
+        <table>
+          <thead><tr><th>Партнер</th><th>ЕДБ</th><th>ЕМБС</th><th>Град</th><th class="num">Места</th></tr></thead>
+          <tbody id="partner-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-articles" class="hidden">
+      <div class="card">
+        <h2 style="margin-top:0">Ставки</h2>
+        <form id="article-form" class="filters">
+          <label>Партнер<select name="partner_id" id="article-partner" required></select></label>
+          <label>Шифра<input name="code"></label>
+          <label>Назив<input name="name" required></label>
+          <label>ЕМ<input name="unit" placeholder="kWh"></label>
+          <label>Данок<select name="tax_type_id" id="article-tax" required></select></label>
+          <button class="primary">Додај</button>
+        </form>
+        <div id="article-error" class="error hidden"></div>
+        <table>
+          <thead><tr><th>Партнер</th><th>Шифра</th><th>Назив</th><th>ЕМ</th><th>Данок</th><th></th></tr></thead>
+          <tbody id="article-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-taxes" class="hidden">
+      <div class="card">
+        <h2 style="margin-top:0">Даночни стапки</h2>
+        <form id="tax-form" class="filters">
+          <label>Назив<input name="name" required placeholder="20%"></label>
+          <label>Стапка %<input name="rate" required placeholder="20"></label>
+          <button class="primary">Додај</button>
+        </form>
+        <div id="tax-error" class="error hidden"></div>
+        <table>
+          <thead><tr><th>Назив</th><th class="num">Стапка</th><th></th></tr></thead>
+          <tbody id="tax-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-reports" class="hidden">
+      <div class="toolbar">
+        <button class="primary" data-report="places">По места</button>
+        <button class="ghost" data-report="partner">По партнер</button>
+      </div>
+      <div class="filters">
+        <label>Од<div class="date-wrap"><input type="text" id="report-from-txt" placeholder="дд.мм.гггг" maxlength="10"><button type="button" class="cal-btn" data-cal="report-from">▦</button><input type="date" id="report-from"></div></label>
+        <label>До<div class="date-wrap"><input type="text" id="report-to-txt" placeholder="дд.мм.гггг" maxlength="10"><button type="button" class="cal-btn" data-cal="report-to">▦</button><input type="date" id="report-to"></div></label>
+        <label>Партнер<select id="report-partner"></select></label>
+        <button class="ghost" id="year-fill">Оваа година</button>
+        <button class="primary" id="report-run">Прикажи</button>
+        <button class="ghost" id="report-export">Excel</button>
+      </div>
+      <p class="hint" id="report-hint"></p>
+      <div id="report-error" class="error hidden"></div>
+      <div id="report-result"></div>
+    </section>
+
+    <section id="view-users" class="hidden">
+      <div class="card">
+        <h2 style="margin-top:0">Корисници</h2>
+        <form id="user-form" class="filters">
+          <label>Корисник<input name="username" required></label>
+          <label>Лозинка<input name="password" required></label>
+          <label>Улога<select name="role"><option value="user">корисник</option><option value="admin">администратор</option></select></label>
+          <button class="primary">Додај</button>
+        </form>
+        <div id="user-error" class="error hidden"></div>
+        <table>
+          <thead><tr><th>Корисник</th><th>Улога</th><th></th></tr></thead>
+          <tbody id="user-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="invoice-modal" class="modal hidden">
+  <div class="sheet">
+    <h2 id="invoice-title">Нова фактура</h2>
+    <div id="form-error" class="error hidden"></div>
+    <form id="invoice-form">
+      <div class="grid">
+        <label>Број на фактура<input name="invoice_number" required></label>
+        <label>Датум на издавање<div class="date-wrap"><input type="text" id="issue_date_txt" placeholder="дд.мм.гггг" maxlength="10" required><button type="button" class="cal-btn" data-cal="issue_date">▦</button><input type="date" name="issue_date" id="issue_date"></div></label>
+        <label>Рок на плаќање<div class="date-wrap"><input type="text" id="due_date_txt" placeholder="дд.мм.гггг" maxlength="10"><button type="button" class="cal-btn" data-cal="due_date">▦</button><input type="date" name="due_date" id="due_date"></div></label>
+        <label>Статус<select name="payment_status">
+          <option value="unpaid">Неплатена</option>
+          <option value="paid">Платена</option>
+          <option value="cancelled">Откажана</option>
+        </select></label>
+        <label>Период од<div class="date-wrap"><input type="text" id="period_from_txt" placeholder="дд.мм.гггг" maxlength="10"><button type="button" class="cal-btn" data-cal="period_from">▦</button><input type="date" name="period_from" id="period_from"></div></label>
+        <label>Период до<div class="date-wrap"><input type="text" id="period_to_txt" placeholder="дд.мм.гггг" maxlength="10"><button type="button" class="cal-btn" data-cal="period_to">▦</button><input type="date" name="period_to" id="period_to"></div></label>
+        <label>Партнер<select name="partner_id" id="form-partner" required></select></label>
+        <label id="place-wrap">Место на потрошувачка<select name="place_id" id="form-place"></select></label>
+        <label class="span-2">Повик на број<input name="payment_ref"></label>
+        <label class="span-2">Забелешка<input name="notes"></label>
+      </div>
+      <p class="hint">ДДВ не се внесува како ставка. Се пресметува од стапката. Празно израмнување го заокружува вкупното на цел денар, како на фактурата.</p>
+      <div style="overflow:auto">
+        <table class="line-table">
+          <thead>
+            <tr>
+              <th>Ставка</th><th>Количина</th><th>ЕМ</th><th>Цена</th>
+              <th>Без данок</th><th>Стапка</th><th>Данок</th><th>Со данок</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="line-rows"></tbody>
+        </table>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="ghost" id="line-add">Ставка</button>
+        <div class="spacer"></div>
+        <label>Израмнување<input name="rounding" id="rounding" placeholder="автоматски"></label>
+      </div>
+      <div class="totals">
+        <div>Без данок<strong id="live-net" class="calc">0,00</strong></div>
+        <div>Данок<strong id="live-tax" class="calc">0,00</strong></div>
+        <div>За плаќање<strong id="live-pay" class="calc">0,00</strong></div>
+      </div>
+      <div class="toolbar">
+        <button class="primary" type="submit">Зачувај</button>
+        <button class="ghost" type="button" id="invoice-close">Откажи</button>
+        <button class="danger hidden" type="button" id="invoice-delete">Избриши</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="partner-modal" class="modal hidden">
+  <div class="sheet">
+    <h2 id="partner-title">Партнер</h2>
+    <div id="partner-form-error" class="error hidden"></div>
+    <form id="partner-form" class="grid">
+      <label class="span-2">Назив<input name="name" required></label>
+      <label>ЕДБ<input name="edb"></label>
+      <label>ЕМБС<input name="embs"></label>
+      <label class="span-2">Адреса<input name="address"></label>
+      <label>Град<input name="city"></label>
+      <label>Држава<input name="country"></label>
+      <label>Телефон<input name="phone"></label>
+      <label>Мобилен<input name="mobile"></label>
+      <label class="span-2">Е-пошта<input name="email"></label>
+      <label class="span-4">Забелешка<textarea name="notes"></textarea></label>
+    </form>
+    <div class="toolbar">
+      <button class="primary" id="partner-save" type="button">Зачувај</button>
+      <button class="ghost" id="partner-close" type="button">Затвори</button>
+      <button class="danger hidden" id="partner-delete" type="button">Избриши</button>
+    </div>
+    <div id="places-box" class="hidden">
+      <h3>Места на потрошувачка</h3>
+      <div id="place-error" class="error hidden"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Назив</th><th>Број на корисник</th><th>Место на потрошувачка</th>
+            <th>Точка на отчитување</th><th>Адреса</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="place-rows"></tbody>
+      </table>
+      <h3>Ново место</h3>
+      <form id="place-form" class="grid">
+        <label>Назив<input name="name" required></label>
+        <label>Број на корисник<input name="customer_number" required></label>
+        <label>Место на потрошувачка<input name="consumption_place" required></label>
+        <label>Точка на отчитување<input name="metering_point" required></label>
+        <label class="span-2">Адреса<input name="address"></label>
+        <button class="primary">Додај место</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="appCalendar" class="app-cal hidden" role="dialog" aria-label="Календар">
+  <div class="app-cal-head">
+    <button type="button" class="app-cal-nav" id="cal-prev">‹</button>
+    <div class="app-cal-title" id="calTitle"></div>
+    <button type="button" class="app-cal-nav" id="cal-next">›</button>
+  </div>
+  <div class="app-cal-week" id="calWeek"></div>
+  <div class="app-cal-grid" id="calGrid"></div>
+  <div class="app-cal-foot">
+    <button type="button" class="ghost" id="calClear">Избриши</button>
+    <button type="button" class="ghost" id="calToday">Денес</button>
+  </div>
+</div>
+
+<div id="password-modal" class="modal hidden">
+  <div class="sheet" style="width:min(420px,100%)">
+    <h2>Смена на лозинка</h2>
+    <form id="password-form" class="grid" style="grid-template-columns:1fr">
+      <label>Сегашна<input name="current_password" type="password" required></label>
+      <label>Нова<input name="password" type="password" required></label>
+      <div id="password-error" class="error hidden"></div>
+      <div class="toolbar">
+        <button class="primary">Зачувај</button>
+        <button class="ghost" type="button" id="password-close">Откажи</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+let theme = localStorage.getItem('theme') || 'light';
+
+function setTheme(next) {
+  theme = next;
+  localStorage.setItem('theme', theme);
+  document.documentElement.setAttribute('data-theme', theme);
+  const mark = theme === 'dark' ? '☀' : '🌙';
+  document.getElementById('themeBtn').textContent = mark;
+  document.getElementById('loginThemeBtn').textContent = mark;
+}
+
+function toggleTheme() {
+  setTheme(theme === 'dark' ? 'light' : 'dark');
+}
+
+setTheme(theme);
+document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+document.getElementById('loginThemeBtn').addEventListener('click', toggleTheme);
+
+const state = {
+  user: null,
+  view: 'invoices',
+  report: 'places',
+  taxes: [],
+  partners: [],
+  articles: [],
+  invoiceId: null,
+  partnerId: null,
+};
+
+const CAL_MONTHS = ['јануари', 'февруари', 'март', 'април', 'мај', 'јуни', 'јули', 'август', 'септември', 'октомври', 'ноември', 'декември'];
+const CAL_DAYS = ['П', 'В', 'С', 'Ч', 'П', 'С', 'Н'];
+let calState = null;
+
+const $ = (id) => document.getElementById(id);
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
+function money(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const number = Number(value);
+  if (Number.isNaN(number)) return '';
+  const [whole, fraction] = Math.abs(number).toFixed(2).split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (number < 0 ? '-' : '') + grouped + ',' + fraction;
+}
+
+function qty(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const number = Number(value);
+  if (Number.isNaN(number)) return '';
+  const text = number.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+  const negative = text.startsWith('-');
+  const plain = negative ? text.slice(1) : text;
+  const [whole, fraction] = plain.split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (negative ? '-' : '') + grouped + (fraction ? ',' + fraction : '');
+}
+
+function parseNum(value) {
+  if (value === null || value === undefined) return null;
+  let text = String(value).trim().replace(/\s/g, '');
+  if (!text) return null;
+  if (text.includes(',') && text.includes('.')) text = text.replace(/\./g, '').replace(',', '.');
+  else text = text.replace(',', '.');
+  const number = Number(text);
+  return Number.isNaN(number) ? null : number;
+}
+
+function showDate(value) {
+  if (!value) return '';
+  const [year, month, day] = value.split('-');
+  return day && month ? `${day}.${month}.${year}` : value;
+}
+
+function setDate(id, iso) {
+  const hidden = $(id);
+  const text = $(id + '_txt') || $(id + '-txt');
+  if (hidden) hidden.value = iso || '';
+  if (text) text.value = showDate(iso);
+}
+
+function onDateType(textInput, hidden) {
+  let value = textInput.value.replace(/[^\d.]/g, '');
+  if (/^\d{2}$/.test(value) || /^\d{2}\.\d{2}$/.test(value)) value += '.';
+  textInput.value = value;
+  const match = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  hidden.value = match ? `${match[3]}-${match[2]}-${match[1]}` : '';
+  hidden.dispatchEvent(new Event('change'));
+}
+
+function openCalendar(event, dateId) {
+  event.preventDefault();
+  event.stopPropagation();
+  const popup = $('appCalendar');
+  if (calState && calState.dateId === dateId && !popup.classList.contains('hidden')) {
+    closeCalendar();
+    return;
+  }
+  const current = $(dateId).value;
+  const base = current ? new Date(current + 'T12:00:00') : new Date();
+  calState = { dateId, year: base.getFullYear(), month: base.getMonth(), selected: current || '' };
+  renderCalendar();
+  popup.classList.remove('hidden');
+  const rect = event.currentTarget.getBoundingClientRect();
+  const width = popup.offsetWidth || 280;
+  const height = popup.offsetHeight || 320;
+  let left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+  let top = rect.bottom + 6;
+  if (top + height > window.innerHeight - 8) top = Math.max(8, rect.top - height - 6);
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+}
+
+function closeCalendar() {
+  $('appCalendar').classList.add('hidden');
+  calState = null;
+}
+
+function shiftCalendar(step) {
+  if (!calState) return;
+  const next = new Date(calState.year, calState.month + step, 1);
+  calState.year = next.getFullYear();
+  calState.month = next.getMonth();
+  renderCalendar();
+}
+
+function renderCalendar() {
+  $('calTitle').textContent = CAL_MONTHS[calState.month] + ' ' + calState.year;
+  $('calWeek').innerHTML = CAL_DAYS.map((day) => `<span>${day}</span>`).join('');
+  const start = (new Date(calState.year, calState.month, 1).getDay() + 6) % 7;
+  const today = new Date();
+  const todayIso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  let html = '';
+  for (let i = 0; i < 42; i++) {
+    const day = new Date(calState.year, calState.month, 1 - start + i);
+    const iso = day.getFullYear() + '-' + String(day.getMonth() + 1).padStart(2, '0') + '-' + String(day.getDate()).padStart(2, '0');
+    const classes = ['app-cal-day'];
+    if (day.getMonth() !== calState.month) classes.push('muted');
+    if (iso === todayIso) classes.push('today');
+    if (iso === calState.selected) classes.push('selected');
+    html += `<button type="button" class="${classes.join(' ')}" data-iso="${iso}">${day.getDate()}</button>`;
+  }
+  $('calGrid').innerHTML = html;
+}
+
+function pickCalendar(iso) {
+  if (!calState) return;
+  setDate(calState.dateId, iso);
+  $(calState.dateId).dispatchEvent(new Event('change'));
+  closeCalendar();
+}
+
+function showError(id, error) {
+  const node = $(id);
+  node.textContent = error.message || 'Грешка';
+  node.classList.remove('hidden');
+}
+
+function clearError(id) {
+  $(id).classList.add('hidden');
+}
+
+async function api(url, options = {}) {
+  const response = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  if (response.status === 401) {
+    showLogin();
+    throw new Error('Не сте најавени');
+  }
+  const data = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
+  if (!response.ok) throw new Error(data?.error || 'Грешка');
+  return data;
+}
+
+function showLogin() {
+  $('login').classList.remove('hidden');
+  $('app').classList.add('hidden');
+}
+
+function showApp() {
+  $('login').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('who').textContent = state.user.username;
+  $('users-nav').classList.toggle('hidden', state.user.role !== 'admin');
+}
+
+document.querySelectorAll('nav button').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach((item) => item.classList.remove('active'));
+    button.classList.add('active');
+    state.view = button.dataset.view;
+    document.querySelectorAll('main section').forEach((section) => {
+      section.classList.toggle('hidden', section.id !== 'view-' + state.view);
+    });
+    loadView();
+  });
+});
+
+async function loadView() {
+  if (state.view === 'invoices') return loadInvoices();
+  if (state.view === 'partners') return loadPartners();
+  if (state.view === 'articles') return loadArticlePage();
+  if (state.view === 'taxes') return loadTaxes();
+  if (state.view === 'reports') return prepareReports();
+  if (state.view === 'users') return loadUsers();
+}
+
+async function ensureLookups() {
+  [state.taxes, state.partners] = await Promise.all([
+    api('/api/tax-types'),
+    api('/api/partners'),
+  ]);
+}
+
+function partnerOptions(select, blank) {
+  const current = select.value;
+  select.innerHTML = (blank ? `<option value="">${blank}</option>` : '') +
+    state.partners.map((partner) => `<option value="${partner.id}">${esc(partner.name)}</option>`).join('');
+  if ([...select.options].some((option) => option.value === current)) select.value = current;
+}
+
+async function loadInvoices() {
+  clearError('invoice-error');
+  try {
+    await ensureLookups();
+    partnerOptions($('filter-partner'), 'Сите');
+    const yearSelect = $('filter-year');
+    const selected = yearSelect.value;
+    const dataAll = await api('/api/invoices');
+    const years = new Set(dataAll.invoices.map((item) => item.issue_date.slice(0, 4)));
+    years.add(String(new Date().getFullYear()));
+    yearSelect.innerHTML = '<option value="">Сите</option>' +
+      [...years].sort().reverse().map((year) => `<option>${year}</option>`).join('');
+    if (selected) yearSelect.value = selected;
+    const params = new URLSearchParams();
+    ['q', 'filter-partner', 'filter-year', 'filter-status', 'filter-from', 'filter-to'].forEach((id) => {
+      const names = { q: 'q', 'filter-partner': 'partner_id', 'filter-year': 'year', 'filter-status': 'status', 'filter-from': 'from', 'filter-to': 'to' };
+      if ($(id).value.trim()) params.set(names[id], $(id).value.trim());
+    });
+    const data = params.toString() ? await api('/api/invoices?' + params) : dataAll;
+    $('invoice-rows').innerHTML = data.invoices.map((item) => `
+      <tr class="clickable" data-id="${item.id}">
+        <td>${esc(item.invoice_number)}</td>
+        <td>${showDate(item.issue_date)}</td>
+        <td>${showDate(item.due_date)}</td>
+        <td>${esc(item.partner_name)}</td>
+        <td>${esc(item.place_name || '')}<div class="hint">${esc(item.customer_number || '')}</div></td>
+        <td class="num">${money(item.amount_without_tax)}</td>
+        <td class="num">${money(item.tax_amount)}</td>
+        <td class="num">${money(item.payable)}</td>
+        <td><span class="badge ${item.payment_status}">${esc(item.payment_status_label)}</span></td>
+      </tr>`).join('') || '<tr><td colspan="9">Нема фактури.</td></tr>';
+    $('invoice-count').textContent = data.count + (data.count === 1 ? ' фактура' : ' фактури');
+    $('sum-net').textContent = money(data.totals.amount_without_tax);
+    $('sum-tax').textContent = money(data.totals.tax_amount);
+    $('sum-pay').textContent = money(data.totals.payable);
+  } catch (error) {
+    showError('invoice-error', error);
+  }
+}
+
+function taxOptions(selected) {
+  return state.taxes.map((tax) => {
+    const mark = String(tax.id) === String(selected) ? 'selected' : '';
+    return `<option value="${tax.id}" data-rate="${tax.rate}" ${mark}>${esc(tax.name)} — ${(tax.rate * 100).toFixed(0)}%</option>`;
+  }).join('');
+}
+
+function defaultTaxId() {
+  return state.taxes.find((tax) => tax.rate === 0.18)?.id || state.taxes[0]?.id || '';
+}
+
+function articleOptions(selected) {
+  const options = state.articles.map((article) => {
+    const label = article.code ? `${article.code} — ${article.name}` : article.name;
+    const mark = String(article.id) === String(selected) ? 'selected' : '';
+    return `<option value="${article.id}" data-unit="${esc(article.unit || '')}" data-tax="${article.tax_type_id || ''}" ${mark}>${esc(label)}</option>`;
+  }).join('');
+  const missing = selected && !state.articles.some((article) => String(article.id) === String(selected));
+  return `<option value="">Изберете ставка</option>` + options +
+    (missing ? `<option value="${selected}" selected>зачувана ставка</option>` : '');
+}
+
+function lineRow(line = {}) {
+  return `<tr>
+    <td><select data-field="article_id">${articleOptions(line.article_id)}</select></td>
+    <td><input data-field="quantity" value="${line.quantity ?? ''}"></td>
+    <td><input data-field="unit" value="${esc(line.unit || '')}"></td>
+    <td><input data-field="unit_price" value="${line.unit_price ?? ''}"></td>
+    <td><input data-field="amount_without_tax" value="${line.amount_without_tax ?? ''}"></td>
+    <td><select data-field="tax_type_id">${taxOptions(line.tax_type_id || defaultTaxId())}</select></td>
+    <td class="num calc" data-tax></td>
+    <td class="num calc" data-gross></td>
+    <td><button type="button" class="ghost" data-remove>✕</button></td>
+  </tr>`;
+}
+
+function recalc() {
+  let net = 0;
+  let tax = 0;
+  document.querySelectorAll('#line-rows tr').forEach((row) => {
+    const quantity = parseNum(row.querySelector('[data-field="quantity"]').value);
+    const price = parseNum(row.querySelector('[data-field="unit_price"]').value);
+    const amountField = row.querySelector('[data-field="amount_without_tax"]');
+    let amount = parseNum(amountField.value);
+    if (quantity !== null && price !== null) {
+      amount = Math.round((quantity * price + Number.EPSILON) * 100) / 100;
+      if (document.activeElement !== amountField) amountField.value = money(amount);
+    }
+    amount = amount || 0;
+    const rate = Number(row.querySelector('[data-field="tax_type_id"]').selectedOptions[0]?.dataset.rate || 0);
+    const taxAmount = Math.round((amount * rate + Number.EPSILON) * 100) / 100;
+    row.querySelector('[data-tax]').textContent = money(taxAmount);
+    row.querySelector('[data-gross]').textContent = money(Math.round((amount + taxAmount) * 100) / 100);
+    net += amount;
+    tax += taxAmount;
+  });
+  const rounding = parseNum($('rounding').value) || 0;
+  $('live-net').textContent = money(net);
+  $('live-tax').textContent = money(tax);
+  $('live-pay').textContent = money(Math.round((net + tax + rounding) * 100) / 100);
+}
+
+async function loadArticles(partnerId) {
+  state.articles = partnerId ? await api('/api/articles?partner_id=' + partnerId) : [];
+  document.querySelectorAll('#line-rows [data-field="article_id"]').forEach((select) => {
+    const current = select.value;
+    select.innerHTML = articleOptions(current);
+    if ([...select.options].some((option) => option.value === current)) select.value = current;
+  });
+}
+
+async function fillPlaces(partnerId, selected) {
+  const wrap = $('place-wrap');
+  const select = $('form-place');
+  if (!partnerId) {
+    wrap.classList.add('hidden');
+    select.innerHTML = '';
+    return;
+  }
+  const places = await api('/api/places?partner_id=' + partnerId);
+  if (!places.length) {
+    wrap.classList.add('hidden');
+    select.innerHTML = '';
+    return;
+  }
+  wrap.classList.remove('hidden');
+  select.innerHTML = '<option value="">Изберете</option>' + places.map((place) =>
+    `<option value="${place.id}">${esc(place.name)} — ${esc(place.customer_number)}</option>`
+  ).join('');
+  if (selected) select.value = selected;
+}
+
+async function openInvoice(invoice) {
+  state.invoiceId = invoice?.id || null;
+  $('invoice-title').textContent = invoice ? 'Фактура ' + invoice.invoice_number : 'Нова фактура';
+  $('invoice-delete').classList.toggle('hidden', !invoice);
+  clearError('form-error');
+  const form = $('invoice-form');
+  form.reset();
+  partnerOptions($('form-partner'), 'Изберете');
+  form.elements.invoice_number.value = invoice?.invoice_number || '';
+  form.elements.payment_ref.value = invoice?.payment_ref || '';
+  form.elements.notes.value = invoice?.notes || '';
+  ['issue_date', 'due_date', 'period_from', 'period_to'].forEach((name) => setDate(name, invoice?.[name] || ''));
+  form.elements.payment_status.value = invoice?.payment_status || 'unpaid';
+  form.elements.rounding.value = invoice ? invoice.rounding : '';
+  if (invoice) form.elements.partner_id.value = invoice.partner_id;
+  const partnerId = form.elements.partner_id.value;
+  await loadArticles(partnerId);
+  $('line-rows').innerHTML = (invoice?.lines?.length ? invoice.lines : [{}]).map(lineRow).join('');
+  fillPlaces(partnerId, invoice?.place_id).then(recalc);
+  $('invoice-modal').classList.remove('hidden');
+}
+
+function collectLines() {
+  return [...document.querySelectorAll('#line-rows tr')].map((row) => {
+    const value = (field) => row.querySelector(`[data-field="${field}"]`).value;
+    return {
+      article_id: Number(value('article_id')) || null,
+      quantity: value('quantity'),
+      unit: value('unit'),
+      unit_price: value('unit_price'),
+      amount_without_tax: value('amount_without_tax'),
+      tax_type_id: Number(value('tax_type_id')),
+    };
+  });
+}
+
+async function loadPartners() {
+  clearError('partner-error');
+  try {
+    state.partners = await api('/api/partners');
+    $('partner-rows').innerHTML = state.partners.map((partner) => `
+      <tr class="clickable" data-id="${partner.id}">
+        <td>${esc(partner.name)}</td>
+        <td>${esc(partner.edb || '')}</td>
+        <td>${esc(partner.embs || '')}</td>
+        <td>${esc(partner.city || '')}</td>
+        <td class="num">${partner.place_count}</td>
+      </tr>`).join('');
+  } catch (error) {
+    showError('partner-error', error);
+  }
+}
+
+async function openPartner(partner) {
+  state.partnerId = partner?.id || null;
+  $('partner-title').textContent = partner ? partner.name : 'Нов партнер';
+  $('partner-delete').classList.toggle('hidden', !partner);
+  $('places-box').classList.toggle('hidden', !partner);
+  clearError('partner-form-error');
+  const form = $('partner-form');
+  form.reset();
+  if (partner) {
+    ['name', 'edb', 'embs', 'address', 'city', 'country', 'phone', 'mobile', 'email', 'notes']
+      .forEach((name) => { form.elements[name].value = partner[name] || ''; });
+    await loadPlaces();
+  }
+  $('partner-modal').classList.remove('hidden');
+}
+
+async function loadArticlePage() {
+  clearError('article-error');
+  try {
+    await ensureLookups();
+    partnerOptions($('article-partner'), 'Изберете');
+    $('article-tax').innerHTML = state.taxes.map((tax) =>
+      `<option value="${tax.id}">${esc(tax.name)}</option>`
+    ).join('');
+    const preferred = state.taxes.find((tax) => tax.rate === 0.18);
+    if (preferred) $('article-tax').value = preferred.id;
+    const articles = await api('/api/articles');
+    $('article-rows').innerHTML = articles.map((article) => `
+      <tr data-id="${article.id}">
+        <td><select data-field="partner_id">${state.partners.map((partner) =>
+          `<option value="${partner.id}" ${partner.id === article.partner_id ? 'selected' : ''}>${esc(partner.name)}</option>`
+        ).join('')}</select></td>
+        <td><input data-field="code" value="${esc(article.code || '')}"></td>
+        <td><input data-field="name" value="${esc(article.name)}"></td>
+        <td><input data-field="unit" value="${esc(article.unit || '')}"></td>
+        <td><select data-field="tax_type_id">${state.taxes.map((tax) =>
+          `<option value="${tax.id}" ${tax.id === article.tax_type_id ? 'selected' : ''}>${esc(tax.name)}</option>`
+        ).join('')}</select></td>
+        <td>
+          <button type="button" class="ghost" data-save-article>Зачувај</button>
+          <button type="button" class="danger" data-delete-article>✕</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="6">Нема ставки.</td></tr>';
+  } catch (error) {
+    showError('article-error', error);
+  }
+}
+
+async function loadPlaces() {
+  const places = await api('/api/places?partner_id=' + state.partnerId);
+  $('place-rows').innerHTML = places.map((place) => `
+    <tr data-id="${place.id}">
+      <td><input data-field="name" value="${esc(place.name)}"></td>
+      <td><input data-field="customer_number" value="${esc(place.customer_number)}"></td>
+      <td><input data-field="consumption_place" value="${esc(place.consumption_place)}"></td>
+      <td><input data-field="metering_point" value="${esc(place.metering_point)}"></td>
+      <td><input data-field="address" value="${esc(place.address || '')}"></td>
+      <td>
+        <button type="button" class="ghost" data-save-place>Зачувај</button>
+        <button type="button" class="danger" data-delete-place>✕</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6">Нема места.</td></tr>';
+}
+
+async function loadTaxes() {
+  clearError('tax-error');
+  try {
+    state.taxes = await api('/api/tax-types');
+    $('tax-rows').innerHTML = state.taxes.map((tax) => `
+      <tr>
+        <td>${esc(tax.name)}</td>
+        <td class="num">${(tax.rate * 100).toLocaleString('mk-MK', { maximumFractionDigits: 2 })}%</td>
+        <td><button class="danger" data-delete-tax="${tax.id}">Избриши</button></td>
+      </tr>`).join('');
+  } catch (error) {
+    showError('tax-error', error);
+  }
+}
+
+function prepareReports() {
+  ensureLookups().then(() => {
+    partnerOptions($('report-partner'), state.report === 'places' ? 'Сите' : 'Изберете');
+    $('report-hint').textContent = state.report === 'places'
+      ? 'Вкупно по место на потрошувачка. За година внесете 01.01 до 31.12.'
+      : 'Изберете партнер за количина, износ и данок по ставка.';
+  }).catch((error) => showError('report-error', error));
+}
+
+async function runReport() {
+  clearError('report-error');
+  const params = new URLSearchParams();
+  if ($('report-from').value) params.set('from', $('report-from').value);
+  if ($('report-to').value) params.set('to', $('report-to').value);
+  if ($('report-partner').value) params.set('partner_id', $('report-partner').value);
+  try {
+    if (state.report === 'places') {
+      const data = await api('/api/reports/places?' + params);
+      $('report-result').innerHTML = reportTable([
+        'Место', 'Број на корисник', 'Место на потрошувачка', 'Фактури', 'Без данок', 'Данок', 'За плаќање',
+      ], data.places.map((item) => [
+        item.place_name, item.customer_number, item.consumption_place, item.invoice_count,
+        money(item.amount_without_tax), money(item.tax_amount), money(item.payable),
+      ]), [
+        'Вкупно', '', '', data.totals.invoice_count,
+        money(data.totals.amount_without_tax), money(data.totals.tax_amount), money(data.totals.payable),
+      ]);
+    } else {
+      if (!$('report-partner').value) throw new Error('Изберете партнер');
+      const data = await api('/api/reports/partner?' + params);
+      $('report-result').innerHTML = `<h3>${esc(data.partner.name)}</h3>` +
+        reportTable([
+          'Шифра', 'Назив', 'ЕМ', 'Количина', 'Без данок', 'Данок', 'Со данок',
+        ], data.articles.map((item) => [
+          item.article_code, item.description, item.unit, qty(item.quantity),
+          money(item.amount_without_tax), money(item.tax_amount), money(item.amount_with_tax),
+        ]), [
+          '', 'Вкупно', data.totals.unit || '', qty(data.totals.quantity),
+          money(data.totals.amount_without_tax), money(data.totals.tax_amount), money(data.totals.amount_with_tax),
+        ]) +
+        '<h3>Фактури</h3>' +
+        reportTable([
+          'Фактура', 'Датум', 'Место', 'Без данок', 'Данок', 'Израмнување', 'За плаќање',
+        ], data.invoices.map((item) => [
+          item.invoice_number, showDate(item.issue_date), item.place_name || '',
+          money(item.amount_without_tax), money(item.tax_amount), money(item.rounding), money(item.payable),
+        ]), [
+          '', '', 'Вкупно', money(data.totals.amount_without_tax), money(data.totals.tax_amount),
+          money(data.totals.rounding), money(data.totals.payable),
+        ]);
+    }
+  } catch (error) {
+    showError('report-error', error);
+  }
+}
+
+function reportTable(headers, rows, footer) {
+  const cell = (value, index, tag) => `<${tag} class="${index > 2 ? 'num' : ''}">${esc(value)}</${tag}>`;
+  const head = headers.map((header, index) => cell(header, index, 'th')).join('');
+  const body = rows.map((row) => `<tr>${row.map((value, index) => cell(value, index, 'td')).join('')}</tr>`).join('') ||
+    `<tr><td colspan="${headers.length}">Нема податоци.</td></tr>`;
+  const foot = footer.map((value, index) => cell(value, index, 'th')).join('');
+  return `<div class="card" style="padding:0; overflow:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr>${foot}</tr></tfoot></table></div>`;
+}
+
+async function loadUsers() {
+  clearError('user-error');
+  try {
+    const users = await api('/api/users');
+    $('user-rows').innerHTML = users.map((user) => `
+      <tr>
+        <td>${esc(user.username)}</td>
+        <td>${user.role === 'admin' ? 'администратор' : 'корисник'}</td>
+        <td><button class="danger" data-delete-user="${user.id}">Избриши</button></td>
+      </tr>`).join('');
+  } catch (error) {
+    showError('user-error', error);
+  }
+}
+
+$('login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  clearError('login-error');
+  const form = new FormData(event.target);
+  try {
+    state.user = await api('/api/login', {
+      method: 'POST',
+      body: { username: form.get('username'), password: form.get('password') },
+    });
+    showApp();
+    loadView();
+  } catch (error) {
+    showError('login-error', error);
+  }
+});
+
+$('logout').addEventListener('click', async () => {
+  await api('/api/logout', { method: 'POST' });
+  showLogin();
+});
+
+['filter-partner', 'filter-year', 'filter-status', 'filter-from', 'filter-to'].forEach((id) => {
+  $(id).addEventListener('change', loadInvoices);
+});
+$('q').addEventListener('input', () => {
+  clearTimeout($('q')._timer);
+  $('q')._timer = setTimeout(loadInvoices, 250);
+});
+
+$('invoice-new').addEventListener('click', () => openInvoice(null));
+$('invoice-close').addEventListener('click', () => $('invoice-modal').classList.add('hidden'));
+$('invoice-rows').addEventListener('click', async (event) => {
+  const row = event.target.closest('tr[data-id]');
+  if (!row) return;
+  try {
+    openInvoice(await api('/api/invoices/' + row.dataset.id));
+  } catch (error) {
+    showError('invoice-error', error);
+  }
+});
+$('form-partner').addEventListener('change', async () => {
+  await loadArticles($('form-partner').value);
+  fillPlaces($('form-partner').value);
+});
+$('line-add').addEventListener('click', () => {
+  $('line-rows').insertAdjacentHTML('beforeend', lineRow());
+  recalc();
+});
+$('line-rows').addEventListener('change', (event) => {
+  const select = event.target.closest('[data-field="article_id"]');
+  if (!select) return;
+  const unit = select.selectedOptions[0]?.dataset.unit;
+  const row = select.closest('tr');
+  if (unit) row.querySelector('[data-field="unit"]').value = unit;
+  const taxId = select.selectedOptions[0]?.dataset.tax;
+  if (taxId) row.querySelector('[data-field="tax_type_id"]').value = taxId;
+  recalc();
+});
+$('line-rows').addEventListener('input', recalc);
+$('line-rows').addEventListener('focusout', recalc);
+$('rounding').addEventListener('input', recalc);
+$('line-rows').addEventListener('click', (event) => {
+  if (!event.target.closest('[data-remove]')) return;
+  if (document.querySelectorAll('#line-rows tr').length === 1) return;
+  event.target.closest('tr').remove();
+  recalc();
+});
+$('invoice-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  clearError('form-error');
+  const form = new FormData(event.target);
+  const body = Object.fromEntries(form.entries());
+  body.partner_id = Number(body.partner_id);
+  body.place_id = body.place_id ? Number(body.place_id) : null;
+  body.lines = collectLines();
+  try {
+    await api(state.invoiceId ? '/api/invoices/' + state.invoiceId : '/api/invoices', {
+      method: state.invoiceId ? 'PUT' : 'POST',
+      body,
+    });
+    $('invoice-modal').classList.add('hidden');
+    loadInvoices();
+  } catch (error) {
+    showError('form-error', error);
+  }
+});
+$('invoice-delete').addEventListener('click', async () => {
+  if (!confirm('Да се избрише фактурата?')) return;
+  try {
+    await api('/api/invoices/' + state.invoiceId, { method: 'DELETE' });
+    $('invoice-modal').classList.add('hidden');
+    loadInvoices();
+  } catch (error) {
+    showError('form-error', error);
+  }
+});
+$('invoice-export').addEventListener('click', () => {
+  const params = new URLSearchParams();
+  const names = { q: 'q', 'filter-partner': 'partner_id', 'filter-year': 'year', 'filter-status': 'status', 'filter-from': 'from', 'filter-to': 'to' };
+  Object.entries(names).forEach(([id, name]) => {
+    if ($(id).value.trim()) params.set(name, $(id).value.trim());
+  });
+  window.location = '/api/export/invoices?' + params;
+});
+
+$('partner-new').addEventListener('click', () => openPartner(null));
+$('partner-close').addEventListener('click', () => $('partner-modal').classList.add('hidden'));
+$('partner-rows').addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-id]');
+  if (!row) return;
+  openPartner(state.partners.find((item) => String(item.id) === row.dataset.id));
+});
+$('partner-save').addEventListener('click', async () => {
+  clearError('partner-form-error');
+  const body = Object.fromEntries(new FormData($('partner-form')).entries());
+  try {
+    const saved = await api(state.partnerId ? '/api/partners/' + state.partnerId : '/api/partners', {
+      method: state.partnerId ? 'PUT' : 'POST',
+      body,
+    });
+    state.partnerId = saved.id;
+    $('partner-title').textContent = saved.name;
+    $('places-box').classList.remove('hidden');
+    $('partner-delete').classList.remove('hidden');
+    await loadPlaces();
+    loadPartners();
+  } catch (error) {
+    showError('partner-form-error', error);
+  }
+});
+$('partner-delete').addEventListener('click', async () => {
+  if (!confirm('Да се избрише партнерот и неговите места без фактури?')) return;
+  try {
+    await api('/api/partners/' + state.partnerId, { method: 'DELETE' });
+    $('partner-modal').classList.add('hidden');
+    loadPartners();
+  } catch (error) {
+    showError('partner-form-error', error);
+  }
+});
+$('place-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  clearError('place-error');
+  const body = Object.fromEntries(new FormData(event.target).entries());
+  body.partner_id = state.partnerId;
+  try {
+    await api('/api/places', { method: 'POST', body });
+    event.target.reset();
+    loadPlaces();
+    loadPartners();
+  } catch (error) {
+    showError('place-error', error);
+  }
+});
+$('place-rows').addEventListener('click', async (event) => {
+  const row = event.target.closest('tr[data-id]');
+  if (!row) return;
+  clearError('place-error');
+  try {
+    if (event.target.closest('[data-delete-place]')) {
+      if (!confirm('Да се избрише местото?')) return;
+      await api('/api/places/' + row.dataset.id, { method: 'DELETE' });
+    } else if (event.target.closest('[data-save-place]')) {
+      const body = { partner_id: state.partnerId };
+      row.querySelectorAll('[data-field]').forEach((input) => { body[input.dataset.field] = input.value; });
+      await api('/api/places/' + row.dataset.id, { method: 'PUT', body });
+    } else return;
+    loadPlaces();
+    loadPartners();
+  } catch (error) {
+    showError('place-error', error);
+  }
+});
+
+$('tax-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  clearError('tax-error');
+  const form = new FormData(event.target);
+  try {
+    await api('/api/tax-types', { method: 'POST', body: { name: form.get('name'), rate: form.get('rate') } });
+    event.target.reset();
+    loadTaxes();
+  } catch (error) {
+    showError('tax-error', error);
+  }
+});
+$('tax-rows').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-delete-tax]');
+  if (!button || !confirm('Да се избрише стапката?')) return;
+  try {
+    await api('/api/tax-types/' + button.dataset.deleteTax, { method: 'DELETE' });
+    loadTaxes();
+  } catch (error) {
+    showError('tax-error', error);
+  }
+});
+
+document.querySelectorAll('[data-report]').forEach((button) => {
+  button.addEventListener('click', () => {
+    state.report = button.dataset.report;
+    document.querySelectorAll('[data-report]').forEach((item) => {
+      item.classList.toggle('primary', item === button);
+      item.classList.toggle('ghost', item !== button);
+    });
+    $('report-result').innerHTML = '';
+    prepareReports();
+  });
+});
+$('year-fill').addEventListener('click', () => {
+  const year = new Date().getFullYear();
+  setDate('report-from', year + '-01-01');
+  setDate('report-to', year + '-12-31');
+});
+$('report-run').addEventListener('click', runReport);
+$('report-export').addEventListener('click', () => {
+  const params = new URLSearchParams();
+  if ($('report-from').value) params.set('from', $('report-from').value);
+  if ($('report-to').value) params.set('to', $('report-to').value);
+  if ($('report-partner').value) params.set('partner_id', $('report-partner').value);
+  window.location = '/api/export/' + (state.report === 'places' ? 'places' : 'partner') + '?' + params;
+});
+
+$('user-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  clearError('user-error');
+  const form = new FormData(event.target);
+  try {
+    await api('/api/users', {
+      method: 'POST',
+      body: { username: form.get('username'), password: form.get('password'), role: form.get('role') },
+    });
+    event.target.reset();
+    loadUsers();
+  } catch (error) {
+    showError('user-error', error);
+  }
+});
+$('user-rows').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-delete-user]');
+  if (!button || !confirm('Да се избрише корисникот?')) return;
+  try {
+    await api('/api/users/' + button.dataset.deleteUser, { method: 'DELETE' });
+    loadUsers();
+  } catch (error) {
+    showError('user-error', error);
+  }
+});
+
+$('password-open').addEventListener('click', () => {
+  clearError('password-error');
+  $('password-form').reset();
+  $('password-modal').classList.remove('hidden');
+});
+$('password-close').addEventListener('click', () => $('password-modal').classList.add('hidden'));
+$('password-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  try {
+    await api('/api/me/password', {
+      method: 'PUT',
+      body: { current_password: form.get('current_password'), password: form.get('password') },
+    });
+    $('password-modal').classList.add('hidden');
+  } catch (error) {
+    showError('password-error', error);
+  }
+});
+
+$('article-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  clearError('article-error');
+  const body = Object.fromEntries(new FormData(event.target).entries());
+  body.tax_type_id = Number(body.tax_type_id);
+  body.partner_id = Number(body.partner_id);
+  try {
+    await api('/api/articles', { method: 'POST', body });
+    event.target.reset();
+    loadArticlePage();
+  } catch (error) {
+    showError('article-error', error);
+  }
+});
+$('article-rows').addEventListener('click', async (event) => {
+  const row = event.target.closest('tr[data-id]');
+  if (!row) return;
+  clearError('article-error');
+  try {
+    if (event.target.closest('[data-delete-article]')) {
+      if (!confirm('Да се избрише ставката?')) return;
+      await api('/api/articles/' + row.dataset.id, { method: 'DELETE' });
+    } else if (event.target.closest('[data-save-article]')) {
+      const body = {};
+      row.querySelectorAll('[data-field]').forEach((input) => { body[input.dataset.field] = input.value; });
+      body.partner_id = Number(body.partner_id);
+      body.tax_type_id = Number(body.tax_type_id);
+      await api('/api/articles/' + row.dataset.id, { method: 'PUT', body });
+    } else return;
+    loadArticlePage();
+  } catch (error) {
+    showError('article-error', error);
+  }
+});
+
+document.querySelectorAll('.date-wrap input[type="text"]').forEach((input) => {
+  const hidden = input.parentElement.querySelector('input[type="date"]');
+  input.addEventListener('input', () => onDateType(input, hidden));
+});
+document.querySelectorAll('[data-cal]').forEach((button) => {
+  button.addEventListener('click', (event) => openCalendar(event, button.dataset.cal));
+});
+$('cal-prev').addEventListener('click', () => shiftCalendar(-1));
+$('cal-next').addEventListener('click', () => shiftCalendar(1));
+$('calClear').addEventListener('click', () => pickCalendar(''));
+$('calToday').addEventListener('click', () => {
+  const today = new Date();
+  pickCalendar(today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0'));
+});
+$('calGrid').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-iso]');
+  if (button) pickCalendar(button.dataset.iso);
+});
+document.addEventListener('click', (event) => {
+  if (event.target.closest('#appCalendar') || event.target.closest('.cal-btn')) return;
+  closeCalendar();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeCalendar();
+    document.querySelectorAll('.modal').forEach((modal) => modal.classList.add('hidden'));
+  }
+});
+
+api('/api/me').then((user) => {
+  state.user = user;
+  showApp();
+  loadView();
+}).catch(() => showLogin());
+</script>
+</body>
+</html>

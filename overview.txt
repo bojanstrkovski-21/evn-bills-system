@@ -1,0 +1,36 @@
+Tax Types – pre-filled with No Tax / 5% / 10% / 15% / 18%. You can add new tax types in the empty rows (enter the name and the rate as a decimal, e.g. 0.20 for 20%).
+Partners – all the fields you listed:
+Partner Name (required – yellow cells)
+EDB Tax ID
+EMBS Registry Number
+Address, City, Country
+Phone, Mobile, Email
+(All other fields are optional so you can fill them later.)
+
+Measurement Places – 8 places (PlaceID 1–8). Enter the place names.
+Invoices – Invoice Number, Created Date, Due Date, PlaceID (dropdown 1–8), PartnerID. Place name and invoice totals fill automatically.
+Invoice Lines – for the articles on each invoice:
+InvoiceID (link to the invoice)
+Article Type / Description
+Quantity
+Amount Without Tax
+Tax Type Name (dropdown)
+Tax Rate, Tax Amount and Amount With Tax are calculated automatically
+(Amount With Tax = Amount Without Tax + Tax based on the selected rate)
+
+Reports
+All-time totals by measurement place + Grand Total
+Date-filtered totals (set From Date and To Date at the top)
+For yearly reports just set the dates to 01.01.YYYY – 31.12.YYYY
+
+
+How to use it
+
+Yellow cells = enter data
+Green cells = calculated (do not edit)
+Dates are in DD.MM.YYYY format
+You can add more rows later by copying the formulas down
+Tax dropdown currently has the default rates; if you add new tax types, type the exact name you entered in the Tax Types sheet
+
+Everything is formula-driven, so totals and reports update automatically as you enter invoices and line items.
+If you want any changes (extra columns, different layout, more places, currency formatting, etc.), just tell me.
