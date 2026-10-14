@@ -91,6 +91,9 @@
   .theme-btn:hover, header .ghost:hover { background: rgba(255,255,255,0.12); }
   main { padding: 18px 22px 40px; }
   .toolbar, .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  #account-box { margin: 8px 0 16px; }
+  #account-box h3 { margin: 0 0 8px; }
+  #account-add { margin-top: 4px; }
   label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
   input, select, textarea {
     border: 1px solid var(--line);
@@ -292,6 +295,8 @@
     <section id="view-partners" class="hidden">
       <div class="toolbar">
         <button class="primary" id="partner-new">Нов партнер</button>
+        <button class="ghost" id="partners-excel" type="button">Excel</button>
+        <button class="ghost" id="partners-pdf" type="button">PDF</button>
         <span class="hint">ЕСМ Продажба нема места. Електродистрибуција ги има седумте.</span>
       </div>
       <div id="partner-error" class="error hidden"></div>
@@ -443,8 +448,15 @@
       <label class="span-2">Е-пошта<input name="email"></label>
       <label class="span-4">Забелешка<textarea name="notes"></textarea></label>
     </form>
+    <div id="account-box">
+      <h3>Банкарски сметки</h3>
+      <div id="account-rows"></div>
+      <div class="toolbar"><button class="ghost" id="account-add" type="button">Додај сметка</button></div>
+    </div>
     <div class="toolbar">
       <button class="primary" id="partner-save" type="button">Зачувај</button>
+      <button class="ghost" id="partner-excel" type="button">Excel</button>
+      <button class="ghost" id="partner-pdf" type="button">PDF</button>
       <button class="ghost" id="partner-close" type="button">Затвори</button>
       <button class="danger hidden" id="partner-delete" type="button">Избриши</button>
     </div>
@@ -928,9 +940,31 @@ async function openPartner(partner) {
   if (partner) {
     ['name', 'edb', 'embs', 'address', 'city', 'country', 'phone', 'mobile', 'email', 'notes']
       .forEach((name) => { form.elements[name].value = partner[name] || ''; });
+    renderAccounts(partner.accounts || []);
     await loadPlaces();
+  } else {
+    renderAccounts([]);
   }
   $('partner-modal').classList.remove('hidden');
+}
+
+function accountRow(account = {}) {
+  return `<div class="filters account-row">
+    <label>Банка<input data-field="bank" value="${esc(account.bank || '')}"></label>
+    <label>Жиро сметка<input data-field="account_number" value="${esc(account.account_number || '')}"></label>
+    <button type="button" class="danger" data-remove-account>✕</button>
+  </div>`;
+}
+
+function renderAccounts(accounts) {
+  $('account-rows').innerHTML = accounts.map(accountRow).join('') || accountRow();
+}
+
+function collectAccounts() {
+  return [...document.querySelectorAll('#account-rows .account-row')].map((row) => ({
+    bank: row.querySelector('[data-field="bank"]').value,
+    account_number: row.querySelector('[data-field="account_number"]').value,
+  })).filter((account) => account.bank.trim() || account.account_number.trim());
 }
 
 async function loadArticlePage() {
@@ -1181,6 +1215,21 @@ $('invoice-export').addEventListener('click', () => {
   window.location = '/api/export/invoices?' + params;
 });
 
+function savePartnerFile(kind, partnerId) {
+  const params = new URLSearchParams();
+  if (partnerId) params.set('partner_id', partnerId);
+  window.location = '/api/export/partner-data.' + kind + '?' + params;
+}
+$('partners-excel').addEventListener('click', () => savePartnerFile('xlsx'));
+$('partners-pdf').addEventListener('click', () => savePartnerFile('pdf'));
+$('partner-excel').addEventListener('click', () => {
+  if (!state.partnerId) return showError('partner-form-error', new Error('Прво зачувајте го партнерот'));
+  savePartnerFile('xlsx', state.partnerId);
+});
+$('partner-pdf').addEventListener('click', () => {
+  if (!state.partnerId) return showError('partner-form-error', new Error('Прво зачувајте го партнерот'));
+  savePartnerFile('pdf', state.partnerId);
+});
 $('partner-new').addEventListener('click', () => openPartner(null));
 $('partner-close').addEventListener('click', () => $('partner-modal').classList.add('hidden'));
 $('partner-rows').addEventListener('click', (event) => {
@@ -1188,9 +1237,22 @@ $('partner-rows').addEventListener('click', (event) => {
   if (!row) return;
   openPartner(state.partners.find((item) => String(item.id) === row.dataset.id));
 });
+$('account-add').addEventListener('click', () => {
+  $('account-rows').insertAdjacentHTML('beforeend', accountRow());
+});
+$('account-rows').addEventListener('click', (event) => {
+  if (!event.target.closest('[data-remove-account]')) return;
+  const rows = document.querySelectorAll('#account-rows .account-row');
+  if (rows.length === 1) {
+    rows[0].querySelectorAll('input').forEach((input) => { input.value = ''; });
+    return;
+  }
+  event.target.closest('.account-row').remove();
+});
 $('partner-save').addEventListener('click', async () => {
   clearError('partner-form-error');
   const body = Object.fromEntries(new FormData($('partner-form')).entries());
+  body.accounts = collectAccounts();
   try {
     const saved = await api(state.partnerId ? '/api/partners/' + state.partnerId : '/api/partners', {
       method: state.partnerId ? 'PUT' : 'POST',

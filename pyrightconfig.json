@@ -1,0 +1,7 @@
+{
+  "typeCheckingMode": "off",
+  "pythonVersion": "3.14",
+  "extraPaths": [
+    "D:/My Backups/Bojan/evn-bills-system/.venv/Lib/site-packages"
+  ]
+}

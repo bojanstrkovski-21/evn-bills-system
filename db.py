@@ -25,7 +25,11 @@ PARTNERS = [
         'phone': '02 3205 300',
         'mobile': '',
         'email': 'info@dso.mk',
-        'notes': 'НЛБ Банка 210071492390127; Халк Банка 270071492390134',
+        'notes': '',
+        'accounts': [
+            ('НЛБ Банка', '210071492390127'),
+            ('Халк Банка', '270071492390134'),
+        ],
     },
     {
         'name': 'ЕСМ Продажба ДООЕЛ Скопје',
@@ -38,6 +42,12 @@ PARTNERS = [
         'mobile': '',
         'email': 'infofakturi@esm-prodazba.mk',
         'notes': 'elemtrejd@elem.com.mk',
+        'accounts': [
+            ('Стопанска Банка АД Скопје', '200002036632944'),
+            ('Халк Банка АД Скопје', '270065484740142'),
+            ('Централна кооперативна Банка АД Скопје', '320100033627185'),
+            ('ПроКредит Банка АД Скопје', '380179044000111'),
+        ],
     },
 ]
 
@@ -125,6 +135,13 @@ def init_db():
                 email       TEXT,
                 notes       TEXT,
                 created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS bank_accounts (
+                id              INTEGER PRIMARY KEY,
+                partner_id      INTEGER NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+                bank            TEXT,
+                account_number  TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS places (
@@ -221,6 +238,11 @@ def init_db():
                         partner['notes'],
                     ),
                 )
+                partner_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+                conn.executemany(
+                    'INSERT INTO bank_accounts (partner_id, bank, account_number) VALUES (?, ?, ?)',
+                    [(partner_id, bank, number) for bank, number in partner['accounts']],
+                )
             for partner_name, name, customer, consumption, meter, address in PLACES:
                 partner_id = conn.execute(
                     'SELECT id FROM partners WHERE name = ?', (partner_name,)
@@ -279,4 +301,30 @@ def init_db():
                    ) WHERE name = ? AND tax_type_id IS NULL''',
                 (tax_name, name),
             )
+        SEEDED_ACCOUNTS = {
+            'Електродистрибуција ДООЕЛ Скопје': [
+                ('НЛБ Банка', '210071492390127'),
+                ('Халк Банка', '270071492390134'),
+            ],
+            'ЕСМ Продажба ДООЕЛ Скопје': [
+                ('Стопанска Банка АД Скопје', '200002036632944'),
+                ('Халк Банка АД Скопје', '270065484740142'),
+                ('Централна кооперативна Банка АД Скопје', '320100033627185'),
+                ('ПроКредит Банка АД Скопје', '380179044000111'),
+            ],
+        }
+        for name, accounts in SEEDED_ACCOUNTS.items():
+            row = conn.execute('SELECT id, notes FROM partners WHERE name = ?', (name,)).fetchone()
+            if not row:
+                continue
+            count = conn.execute(
+                'SELECT COUNT(*) FROM bank_accounts WHERE partner_id = ?', (row[0],)
+            ).fetchone()[0]
+            if count == 0:
+                conn.executemany(
+                    'INSERT INTO bank_accounts (partner_id, bank, account_number) VALUES (?, ?, ?)',
+                    [(row[0], bank, number) for bank, number in accounts],
+                )
+            if row[1] and '210071492390127' in row[1]:
+                conn.execute('UPDATE partners SET notes = NULL WHERE id = ?', (row[0],))
         conn.commit()

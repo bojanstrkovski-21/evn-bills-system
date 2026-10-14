@@ -2,12 +2,14 @@ import io
 import os
 import secrets
 import sqlite3
-from datetime import date, datetime
-from decimal import Decimal, ROUND_HALF_UP
+from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 
+import fitz
 from flask import Flask, jsonify, request, send_file, send_from_directory, session
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from auth import admin_required, login_required
@@ -51,7 +53,7 @@ def money(value):
 
 
 def denar(value):
-    return money(value).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+    return money(value).quantize(Decimal(1), rounding=ROUND_HALF_UP)
 
 
 def decimal_or_none(value, places):
@@ -281,7 +283,7 @@ def create_tax_type():
         rate = parse_number(data.get('rate'), MONEY, required=True, label='Стапка')
     except ValueError as exc:
         return bad(str(exc))
-    if rate < 0 or rate > 100:
+    if rate is None or rate < 0 or rate > 100:
         return bad('Стапката треба да биде помеѓу 0 и 100')
     stored = (rate / Decimal(100)).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
     db = get_db()
@@ -312,7 +314,7 @@ def update_tax_type(tax_id):
     try:
         if 'rate' in data:
             rate = parse_number(data.get('rate'), MONEY, required=True, label='Стапка')
-            if rate < 0 or rate > 100:
+            if rate is None or rate < 0 or rate > 100:
                 return bad('Стапката треба да биде помеѓу 0 и 100')
             stored = float((rate / Decimal(100)).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP))
         else:
@@ -347,11 +349,35 @@ def delete_tax_type(tax_id):
     return jsonify({'ok': True})
 
 
+def partner_accounts(db, partner_id):
+    return [dict(row) for row in db.execute(
+        'SELECT id, bank, account_number FROM bank_accounts WHERE partner_id = ? ORDER BY id',
+        (partner_id,),
+    )]
+
+
+def save_accounts(db, partner_id, accounts):
+    db.execute('DELETE FROM bank_accounts WHERE partner_id = ?', (partner_id,))
+    rows = []
+    for account in accounts or []:
+        number = (account.get('account_number') or '').strip()
+        if not number:
+            continue
+        rows.append((partner_id, optional(account.get('bank')), number))
+    if rows:
+        db.executemany(
+            'INSERT INTO bank_accounts (partner_id, bank, account_number) VALUES (?, ?, ?)',
+            rows,
+        )
+
+
 def partner_payload(row):
     item = dict(row)
-    item['place_count'] = get_db().execute(
+    db = get_db()
+    item['place_count'] = db.execute(
         'SELECT COUNT(*) FROM places WHERE partner_id = ?', (row['id'],)
     ).fetchone()[0]
+    item['accounts'] = partner_accounts(db, row['id'])
     return item
 
 
@@ -401,6 +427,7 @@ def create_partner():
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         tuple(parsed.values()),
     )
+    save_accounts(db, cursor.lastrowid, data.get('accounts'))
     db.commit()
     return jsonify(partner_payload(db.execute(
         'SELECT * FROM partners WHERE id = ?', (cursor.lastrowid,)
@@ -424,6 +451,8 @@ def update_partner(partner_id):
            phone=?, mobile=?, email=?, notes=? WHERE id=?''',
         (*parsed.values(), partner_id),
     )
+    if 'accounts' in data:
+        save_accounts(db, partner_id, data.get('accounts'))
     db.commit()
     return jsonify(partner_payload(db.execute(
         'SELECT * FROM partners WHERE id = ?', (partner_id,)
@@ -870,12 +899,12 @@ def get_invoices():
     sql += ' ORDER BY i.issue_date DESC, i.invoice_number DESC'
     db = get_db()
     rows = []
-    grand = {'amount_without_tax': 0, 'tax_amount': 0, 'amount_with_tax': 0, 'payable': 0}
+    grand = {'amount_without_tax': 0.0, 'tax_amount': 0.0, 'amount_with_tax': 0.0, 'payable': 0.0}
     for row in db.execute(sql, params):
         item = invoice_header(row, invoice_totals(db, row['id'], row['rounding']))
         rows.append(item)
-        for key in grand:
-            grand[key] = float(money(Decimal(str(grand[key])) + Decimal(str(item[key]))))
+        for key, total in grand.items():
+            grand[key] = float(money(Decimal(str(total)) + Decimal(str(item[key]))))
     return jsonify({'invoices': rows, 'totals': grand, 'count': len(rows)})
 
 
@@ -986,7 +1015,7 @@ def report_places():
         place_params.append(partner_id)
     place_sql += ' ORDER BY customer_number'
     rows = []
-    grand = {'invoice_count': 0, 'amount_without_tax': 0, 'tax_amount': 0, 'payable': 0}
+    grand = {'invoice_count': 0, 'amount_without_tax': 0.0, 'tax_amount': 0.0, 'payable': 0.0}
     for place in db.execute(place_sql, place_params):
         totals = db.execute(
             f'''SELECT COUNT(DISTINCT i.id) AS invoice_count,
@@ -1151,7 +1180,7 @@ def report_partner():
 
 def workbook(title, headers, rows):
     book = Workbook()
-    sheet = book.active
+    sheet = book.active or book.create_sheet()
     sheet.title = title[:31]
     sheet.append(headers)
     for cell in sheet[1]:
@@ -1159,11 +1188,166 @@ def workbook(title, headers, rows):
         cell.font = HEADER_FONT
     for row in rows:
         sheet.append(row)
-    for column in sheet.columns:
+    for index, column in enumerate(sheet.iter_cols(min_row=1, max_row=sheet.max_row, max_col=sheet.max_column), start=1):
+        letter = get_column_letter(index)
         width = max(len(str(cell.value or '')) for cell in column)
-        sheet.column_dimensions[column[0].column_letter].width = min(max(width + 2, 12), 42)
+        sheet.column_dimensions[letter].width = min(max(width + 2, 12), 42)
     output = io.BytesIO()
     book.save(output)
+    output.seek(0)
+    return output
+
+
+PARTNER_FIELDS = [
+    ('name', 'Назив'),
+    ('edb', 'ЕДБ'),
+    ('embs', 'ЕМБС'),
+    ('address', 'Адреса'),
+    ('city', 'Град'),
+    ('country', 'Држава'),
+    ('phone', 'Телефон'),
+    ('mobile', 'Мобилен'),
+    ('email', 'Е-пошта'),
+    ('notes', 'Забелешка'),
+]
+FONT_CANDIDATES = (
+    r'C:\Windows\Fonts\arial.ttf',
+    r'C:\Windows\Fonts\segoeui.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+)
+
+
+def partner_cards(db, partner_id=None):
+    sql = 'SELECT * FROM partners'
+    params = []
+    if partner_id:
+        sql += ' WHERE id = ?'
+        params.append(partner_id)
+    sql += ' ORDER BY name'
+    cards = []
+    for partner in db.execute(sql, params):
+        places = db.execute(
+            '''SELECT name, customer_number, consumption_place, metering_point, address
+               FROM places WHERE partner_id = ? ORDER BY customer_number''',
+            (partner['id'],),
+        ).fetchall()
+        cards.append((dict(partner), [dict(place) for place in places], partner_accounts(db, partner['id'])))
+    return cards
+
+
+def partner_pairs(partner, places, accounts=None):
+    pairs = [(label, partner.get(key) or '') for key, label in PARTNER_FIELDS if key != 'name']
+    if not accounts:
+        pairs.append(('Банкарска сметка', ''))
+    for index, account in enumerate(accounts or [], start=1):
+        bank = account.get('bank') or ''
+        number = account.get('account_number') or ''
+        pairs.append((f'Банкарска сметка {index}', f'{bank} {number}'.strip()))
+    if not places:
+        pairs.append(('Места на потрошувачка', 'Нема места'))
+        return pairs
+    for index, place in enumerate(places, start=1):
+        pairs.extend([
+            (f'Место {index}', place['name'] or ''),
+            ('Број на корисник', place['customer_number'] or ''),
+            ('Место на потрошувачка', place['consumption_place'] or ''),
+            ('Точка на отчитување', place['metering_point'] or ''),
+            ('Адреса на место', place['address'] or ''),
+        ])
+    return pairs
+
+
+def partner_excel(cards):
+    book = Workbook()
+    sheet = book.active or book.create_sheet()
+    sheet.title = 'Партнери'
+    for partner, places, accounts in cards:
+        sheet.append([partner['name'], ''])
+        for cell in sheet[sheet.max_row]:
+            cell.fill = HEADER_FILL
+            cell.font = HEADER_FONT
+        sheet.merge_cells(start_row=sheet.max_row, start_column=1, end_row=sheet.max_row, end_column=2)
+        for label, value in partner_pairs(partner, places, accounts):
+            sheet.append([label, value])
+        sheet.append(['', ''])
+    sheet.column_dimensions['A'].width = 28
+    sheet.column_dimensions['B'].width = 62
+    output = io.BytesIO()
+    book.save(output)
+    output.seek(0)
+    return output
+
+
+def find_font():
+    for path in FONT_CANDIDATES:
+        if os.path.exists(path):
+            return path
+    raise FileNotFoundError('Нема фонт за македонски текст во PDF')
+
+
+def wrap_text(text, font, size, width):
+    lines = []
+    for paragraph in str(text or '').split('\n') or ['']:
+        line = ''
+        for word in paragraph.split(' ') or ['']:
+            trial = word if not line else line + ' ' + word
+            if font.text_length(trial, size) <= width or not line:
+                line = trial
+            else:
+                lines.append(line)
+                line = word
+        lines.append(line)
+    return lines or ['']
+
+
+def partner_pdf(cards):
+    document = fitz.open()
+    font = fitz.Font(fontfile=find_font())
+    widths = [160, 360]
+    size = 10
+    ink = (0.11, 0.16, 0.14)
+    page = document.new_page(width=595, height=842)
+    page.insert_font(fontname='mk', fontfile=find_font())
+    y = 36
+
+    def new_page():
+        nonlocal page, y
+        page = document.new_page(width=595, height=842)
+        page.insert_font(fontname='mk', fontfile=find_font())
+        y = 36
+
+    def draw_row(values, header=False):
+        nonlocal y
+        font_size = 12 if header else size
+        wrapped = [wrap_text(value, font, font_size, width - 10) for value, width in zip(values, widths)]
+        row_height = max(len(lines) for lines in wrapped) * (font_size + 3) + 8
+        if y + row_height > 810:
+            new_page()
+        x = 36
+        fill = (0.12, 0.30, 0.23) if header else (0.93, 0.91, 0.86)
+        text_color = (1, 1, 1) if header else ink
+        for lines, width in zip(wrapped, widths):
+            page.draw_rect(fitz.Rect(x, y, x + width, y + row_height), color=(0.72, 0.68, 0.58), fill=fill, width=0.4)
+            text_y = y + font_size + 3
+            for line in lines:
+                if line:
+                    page.insert_text((x + 5, text_y), line, fontname='mk', fontsize=font_size, color=text_color)
+                text_y += font_size + 3
+            x += width
+        y += row_height
+
+    new_page()
+    first = True
+    for partner, places, accounts in cards:
+        if not first:
+            y += 16
+        first = False
+        draw_row([partner['name'], ''], True)
+        for label, value in partner_pairs(partner, places, accounts):
+            draw_row([label, value])
+    output = io.BytesIO()
+    document.save(output)
+    document.close()
     output.seek(0)
     return output
 
@@ -1226,9 +1410,10 @@ def export_places():
 @app.route('/api/export/partner')
 @login_required
 def export_partner():
-    data = report_partner().get_json()
-    if isinstance(data, dict) and data.get('error'):
-        return bad(data['error'])
+    response = report_partner()
+    if isinstance(response, tuple) or getattr(response, 'status_code', 200) >= 400:
+        return response
+    data = response.get_json()
     rows = [[
         article['article_code'], article['description'], article['unit'],
         article['quantity'] if article['quantity'] is not None else '',
@@ -1244,6 +1429,26 @@ def export_partner():
         'Шифра', 'Назив', 'ЕМ', 'Количина', 'Без данок', 'Данок', 'Со данок',
     ], rows)
     return excel_response(output, 'izvestaj-partner.xlsx')
+
+
+@app.route('/api/export/partner-data.<kind>')
+@login_required
+def export_partner_data(kind):
+    if kind not in ('xlsx', 'pdf'):
+        return bad('Непознат формат', 404)
+    db = get_db()
+    partner_id = request.args.get('partner_id')
+    cards = partner_cards(db, partner_id)
+    if partner_id and not cards:
+        return bad('Партнерот не постои', 404)
+    filename = 'partner.' + kind if partner_id else 'partneri.' + kind
+    if kind == 'xlsx':
+        return excel_response(partner_excel(cards), filename)
+    try:
+        output = partner_pdf(cards)
+    except FileNotFoundError as exc:
+        return bad(str(exc))
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 
 if __name__ == '__main__':
